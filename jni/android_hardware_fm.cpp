@@ -157,10 +157,8 @@ char *FM_LIBRARY_SYMBOL_NAME = "FM_HELIUM_LIB_INTERFACE";
 void *lib_handle;
 static int slimbus_flag = 0;
 
-static char soc_name[16];
+static char soc_name[PROPERTY_VALUE_MAX];
 bool isSocNameAvailable = false;
-static bt_configstore_interface_t* bt_configstore_intf = NULL;
-static void *bt_configstore_lib_handle = NULL;
 
 static JNIEnv *mCallbackEnv = NULL;
 static jobject mCallbacksObj = NULL;
@@ -651,13 +649,12 @@ static   fm_hal_callbacks_t fm_callbacks = {
 
 static void get_property(int ptype, char *value)
 {
-    std::vector<vendor_property_t> vPropList;
-    bt_configstore_intf->get_vendor_properties(ptype, vPropList);
-
-    for (auto&& vendorProp : vPropList) {
-        if (vendorProp.type == ptype) {
-            strlcpy(value, vendorProp.value,PROPERTY_VALUE_MAX);
-        }
+    if (FM_STATS_PROP == ptype) {
+        property_get("persist.vendor.fm.stats", value, "false");
+    } else if( FM_PROP_WAN_RATCONF == ptype) {
+        property_get("persist.vendor.fm_wan.ratconf", value, "0");
+    } else if ( FM_PROP_BTWLAN_LPFENABLER == ptype) {
+        property_get("persist.vendor.btwlan.lpfenabler", value, "0");
     }
 }
 
@@ -954,20 +951,12 @@ static jint android_hardware_fmradio_FmReceiverJNI_enableSoftMuteNative
 static jstring android_hardware_fmradio_FmReceiverJNI_getSocNameNative
  (JNIEnv* env)
 {
-    ALOGI("%s, bt_configstore_intf: %p isSocNameAvailable: %d",
-        __FUNCTION__, bt_configstore_intf, isSocNameAvailable);
+    ALOGI("%s, isSocNameAvailable: %d", __FUNCTION__, isSocNameAvailable);
 
-    if (bt_configstore_intf != NULL && isSocNameAvailable == false) {
-       std::vector<vendor_property_t> vPropList;
-
-       bt_configstore_intf->get_vendor_properties(BT_PROP_SOC_TYPE, vPropList);
-       for (auto&& vendorProp : vPropList) {
-          if (vendorProp.type == BT_PROP_SOC_TYPE) {
-            strlcpy(soc_name, vendorProp.value, sizeof(soc_name));
-            isSocNameAvailable = true;
-            ALOGI("%s:: soc_name = %s",__func__, soc_name);
-          }
-       }
+    if (isSocNameAvailable == false) {
+        property_get("persist.vendor.qcom.bluetooth.soc", soc_name, "pronto");
+        isSocNameAvailable = true;
+        ALOGI("%s:: soc_name = %s",__func__, soc_name);
     }
     return env->NewStringUTF(soc_name);
 }
@@ -1103,56 +1092,12 @@ static JNINativeMethod gMethods[] = {
 
 int register_android_hardware_fm_fmradio(JNIEnv* env)
 {
-        ALOGI("%s, bt_configstore_intf", __FUNCTION__, bt_configstore_intf);
-        if (bt_configstore_intf == NULL) {
-          load_bt_configstore_lib();
-        }
-
         return jniRegisterNativeMethods(env, "qcom/fmradio/FmReceiverJNI", gMethods, NELEM(gMethods));
 }
 
 int deregister_android_hardware_fm_fmradio(JNIEnv* env)
 {
-        if (bt_configstore_lib_handle) {
-            dlclose(bt_configstore_lib_handle);
-            bt_configstore_lib_handle = NULL;
-            bt_configstore_intf = NULL;
-        }
         return 0;
-}
-
-int load_bt_configstore_lib() {
-    const char* sym = BT_CONFIG_STORE_INTERFACE_STRING;
-
-    bt_configstore_lib_handle = dlopen("libbtconfigstore.so", RTLD_NOW);
-    if (!bt_configstore_lib_handle) {
-        const char* err_str = dlerror();
-        ALOGE("%s:: failed to load Bt Config store library, error= %s",
-            __func__, (err_str) ? err_str : "error unknown");
-        goto error;
-    }
-
-    // Get the address of the bt_configstore_interface_t.
-    bt_configstore_intf = (bt_configstore_interface_t*)dlsym(bt_configstore_lib_handle, sym);
-    if (!bt_configstore_intf) {
-        ALOGE("%s:: failed to load symbol from bt config store library = %s",
-            __func__, sym);
-        goto error;
-    }
-
-    // Success.
-    ALOGI("%s::  loaded HAL: bt_configstore_interface_t = %p , bt_configstore_lib_handle= %p",
-        __func__, bt_configstore_intf, bt_configstore_lib_handle);
-    return 0;
-
-  error:
-    if (bt_configstore_lib_handle) {
-      dlclose(bt_configstore_lib_handle);
-      bt_configstore_lib_handle = NULL;
-      bt_configstore_intf = NULL;
-    }
-
-    return -EINVAL;
 }
 
 } // end namespace

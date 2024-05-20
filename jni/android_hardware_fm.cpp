@@ -850,11 +850,15 @@ static jint android_hardware_fmradio_FmReceiverJNI_setMonoStereoNative
 
 /* native interface */
 static jint android_hardware_fmradio_FmReceiverJNI_getRawRdsNative
- (JNIEnv * env, jobject thiz, jint fd, jbooleanArray buff, jint count)
+ (JNIEnv * env, jobject thiz, jint fd, jbyteArray buff, jint count)
 {
+    ALOGD("->android_hardware_fmradio_FmReceiverJNI_getRawRdsNative");
 
+    if (env->GetArrayLength(buff) != count) {
+        ALOGE("%s: unexpected buff size", __func__);
+        return FM_JNI_FAILURE;
+    }
     return (read (fd, buff, count));
-
 }
 
 static jint android_hardware_fmradio_FmReceiverJNI_configureSpurTable

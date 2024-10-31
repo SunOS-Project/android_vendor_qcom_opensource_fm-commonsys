@@ -41,7 +41,7 @@
 #include <dlfcn.h>
 #include "android_runtime/Log.h"
 #include "android_runtime/AndroidRuntime.h"
-#include "bt_configstore.h"
+#include "btcommon_interface_defs.h"
 #include <vector>
 #include "radio-helium.h"
 
@@ -192,8 +192,6 @@ jmethodID method_getStnDbgParamCallback;
 jmethodID method_enableSlimbusCallback;
 jmethodID method_enableSoftMuteCallback;
 jmethodID method_FmReceiverJNICtor;
-
-int load_bt_configstore_lib();
 
 static bool checkCallbackThread() {
    JNIEnv* env = AndroidRuntime::getJNIEnv();
